@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dream Classroom Designer: Teacher Page</title>
+<style>
+:root { --pink:#C2447A; --plum:#6B3F8F; --teal:#1F7A78; --ink:#2A1F2B; --mist:#FBEFF4; --line:#E6D3DD; --ok:#1F7A55; --no:#B23A48; }
+body { margin: 0; font-family: "Nunito Sans", "Segoe UI", Verdana, sans-serif; color: var(--ink); background: var(--mist); }
+header { background: var(--plum); color: #fff; padding: 12px 22px; } header h1 { margin: 0; font-size: 22px; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 18px; }
+.card { background: #fff; border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; }
+textarea { width: 100%; min-height: 140px; font-family: Consolas, monospace; font-size: 13px; border: 2px solid var(--line); border-radius: 10px; padding: 10px; box-sizing: border-box; }
+button { font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 9px 20px; cursor: pointer; background: var(--pink); color: #fff; margin-right: 6px; }
+button.alt { background: #fff; color: var(--plum); border: 2px solid var(--plum); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; }
+th { background: var(--mist); } td.l, th.l { text-align: left; }
+.y { color: var(--ok); font-weight: 800; } .n { color: var(--no); font-weight: 800; } .d { color: #aaa; }
+.small { font-size: 13px; color: #6e5d6f; }
+tr.pick { cursor: pointer; } tr.pick:hover { background: #fdf6f9; }
+#view svg { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<header><h1>Dream Classroom Designer · Teacher Page</h1></header>
+<div class="wrap">
+<div class="card">
+<p><b>Paste student codes</b> below. You can paste them one per line, or paste a whole block of text: the page finds every code in it.</p>
+<textarea id="codes" placeholder="DC-XXXX-..."></textarea>
+<p class="small">Or upload a file of submissions (for example a Canvas quiz responses report saved as CSV): <input type="file" id="file" accept=".csv,.txt,.html"></p>
+<p><button id="go">Show results</button><button class="alt" id="csv">Download spreadsheet (CSV)</button></p>
+<p class="small">Results show each student's <b>first try</b> on each part (✓ or ✗). Students can keep fixing their work in the game, so "Done" shows whether they finished the mission in the end. Nothing is sent anywhere; codes stay on this page.</p>
+</div>
+<div class="card"><div id="out" class="small">No codes yet.</div></div>
+<div class="card" id="view" style="display:none"></div>
+</div>
+<script>
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36).slice(-4).toUpperCase(); }
+function readCode(code) {
+  const m = code.trim().match(/^DC-([A-Z0-9]{1,4})-(.+)$/);
+  if (!m || hash(m[2] + "dream") !== m[1]) return null;
+  try { let b = m[2].replace(/-/g, "+").replace(/~/g, "/"); while (b.length % 4) b += "="; return JSON.parse(decodeURIComponent(escape(atob(b)))); } catch (e) { return null; }
+}
+const PARTS = [
+  ["M1 Rug (area 24)", ["Built", "Area #", "Area unit", "Perim #", "Perim unit"]],
+  ["M2 Garden (perimeter 18)", ["Built", "Area #", "Area unit", "Perim #", "Perim unit"]],
+  ["M3 Twin rugs (same area)", ["Built", "Perim A", "Perim B", "Unit", "More ribbon"]],
+  ["M4 L-shaped nook", ["Built", "Area #", "Area unit", "Perim #", "Perim unit"]],
+  ["M5 Area or perimeter?", ["Q1", "Q2", "Q3", "Q4", "Q5"]]
+];
+let ROWS = [];
+function cell(ch) { return ch === "1" ? '<span class="y">✓</span>' : ch === "0" ? '<span class="n">✗</span>' : '<span class="d">–</span>'; }
+function summary(p) {
+  const first = p.m.map(x => x[1] || "");
+  const all = first.join(""); const right = (all.match(/1/g) || []).length;
+  const unitIdx = [[0, 2], [0, 4], [1, 2], [1, 4], [2, 3], [3, 2], [3, 4]];
+  const unitMiss = unitIdx.filter(([m, i]) => first[m][i] === "0").length;
+  const flags = [];
+  if (unitMiss >= 2) flags.push("Mixes up square feet and feet");
+  if (first[4] && (first[4].match(/0/g) || []).length >= 2) flags.push("Area vs perimeter (quiz)");
+  if (first[3] && first[3][3] === "0") flags.push("Composite perimeter");
+  if ((first[0] && first[0][1] === "0") || (first[3] && first[3][1] === "0")) flags.push("Finding area");
+  if ((first[0] && first[0][3] === "0") || (first[1] && first[1][3] === "0")) flags.push("Finding perimeter");
+  return { right, total: all.length, done: p.m.filter(x => x[3] === "d").length, tries: p.m.map(x => x[2]), flags };
+}
+document.getElementById("go").onclick = () => {
+  const lines = document.getElementById("codes").value.match(/DC-[A-Z0-9]{1,4}-[A-Za-z0-9~\-]+/g) || [];
+  ROWS = []; const bad = [];
+  lines.forEach(l => { const p = readCode(l); if (p) ROWS.push(p); else bad.push(l.slice(0, 14) + "…"); });
+  ROWS.sort((a, b) => a.n.localeCompare(b.n));
+  let h = `<table><tr><th class="l" rowspan="2">Student</th><th rowspan="2">First-try score</th><th rowspan="2">Missions done</th>${PARTS.map(p => `<th colspan="5">${p[0]}</th>`).join("")}<th class="l" rowspan="2">Look at</th></tr>
+    <tr>${PARTS.map(p => p[1].map(x => `<th>${x}</th>`).join("")).join("")}</tr>`;
+  ROWS.forEach((p, k) => {
+    const s = summary(p);
+    h += `<tr class="pick" data-k="${k}"><td class="l"><b>${p.n}</b></td><td>${s.total ? Math.round(100 * s.right / s.total) + "%" : "–"} <span class="small">(${s.right}/${s.total})</span></td><td>${s.done}/5</td>` +
+      p.m.map(x => { const f = (x[1] || "").padEnd(5, "-"); return f.split("").map(cell).join("</td><td>"); }).map(x => `<td>${x}</td>`).join("") +
+      `<td class="l small">${s.flags.join("; ") || "—"}</td></tr>`;
+  });
+  h += "</table>";
+  if (bad.length) h += `<p class="small">These codes didn't work (copied wrong or changed): ${bad.join(", ")}</p>`;
+  h += `<p class="small">Click a student to see their design.</p>`;
+  document.getElementById("out").innerHTML = ROWS.length ? h : "No working codes found.";
+  document.querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => showDesign(ROWS[+tr.dataset.k]));
+};
+function showDesign(p) {
+  const COLS = 16, ROWSN = 12, CS = 26, PAD = 22, colors = ["#F4B6CF", "#BFE3C6", ["#F4B6CF", "#D9C4F0"], "#BFDDF0"], labels = ["Rug", "Garden", ["Rug A", "Rug B"], "Nook"];
+  let s = `<svg width="${COLS * CS + PAD * 2}" height="${ROWSN * CS + PAD * 2}" xmlns="http://www.w3.org/2000/svg" style="background:#fff">`;
+  const rects = [];
+  p.m.slice(0, 4).forEach((x, k) => { if (!x[0]) return; x[0].split("_").forEach((r, j) => { const [a, b, w, h] = r.split(".").map(Number); rects.push({ a, b, w, h, c: Array.isArray(colors[k]) ? colors[k][j] : colors[k], l: Array.isArray(labels[k]) ? labels[k][j] : labels[k] }); }); });
+  rects.forEach(r => s += `<rect x="${PAD + r.a * CS}" y="${PAD + r.b * CS}" width="${r.w * CS}" height="${r.h * CS}" fill="${r.c}"/>`);
+  for (let i = 0; i <= COLS; i++) s += `<line x1="${PAD + i * CS}" y1="${PAD}" x2="${PAD + i * CS}" y2="${PAD + ROWSN * CS}" stroke="#DDD"/>`;
+  for (let j = 0; j <= ROWSN; j++) s += `<line x1="${PAD}" y1="${PAD + j * CS}" x2="${PAD + COLS * CS}" y2="${PAD + j * CS}" stroke="#DDD"/>`;
+  rects.forEach(r => s += `<rect x="${PAD + r.a * CS}" y="${PAD + r.b * CS}" width="${r.w * CS}" height="${r.h * CS}" fill="none" stroke="#2A1F2B" stroke-width="2.5"/><text x="${PAD + (r.a + r.w / 2) * CS}" y="${PAD + (r.b + r.h / 2) * CS + 5}" text-anchor="middle" font-size="12" font-weight="700">${r.l} ${r.w}×${r.h}</text>`);
+  s += "</svg>";
+  const v = document.getElementById("view"); v.style.display = "";
+  v.innerHTML = `<h2 style="margin-top:0;color:#6B3F8F">${p.n}'s design</h2>${s}<p class="small">Tries per mission: ${p.m.map((x, k) => "M" + (k + 1) + ": " + x[2]).join(" · ")}. Quiz final answers: ${p.m[4][4] || "–"}.</p>`;
+  v.scrollIntoView({ behavior: "smooth" });
+}
+document.getElementById("file").onchange = ev => { const f = ev.target.files[0]; if (!f) return; f.text().then(t => { document.getElementById("codes").value = t; document.getElementById("go").click(); }); };
+document.getElementById("csv").onclick = () => {
+  if (!ROWS.length) return;
+  const head = ["Student", "First-try correct", "Out of", "Missions done"].concat(PARTS.flatMap(p => p[1].map(x => p[0].split(" ")[0] + " " + x))).concat(["Look at"]);
+  const lines = [head.join(",")].concat(ROWS.map(p => { const s = summary(p); return [p.n, s.right, s.total, s.done].concat(p.m.flatMap(x => (x[1] || "").padEnd(5, "-").split("").map(c => c === "1" ? "Y" : c === "0" ? "N" : ""))).concat(['"' + s.flags.join("; ") + '"']).join(","); }));
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })); a.download = "dream-classroom-results.csv"; a.click();
+};
+</script>
+</body>
+</html>

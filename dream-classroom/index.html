@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dream Classroom Designer</title>
+<style>
+:root { --pink:#C2447A; --plum:#6B3F8F; --teal:#1F7A78; --ink:#2A1F2B; --mist:#FBEFF4; --line:#E6D3DD; --ok:#1F7A55; --no:#B23A48; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Nunito Sans", "Segoe UI", Verdana, sans-serif; color: var(--ink); background: var(--mist); }
+header { background: var(--plum); color: #fff; padding: 12px 22px; display: flex; align-items: center; gap: 16px; }
+header h1 { font-size: 22px; margin: 0; flex: 1; }
+header .who { font-size: 15px; opacity: .9; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 18px; }
+.card { background: #fff; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 0 var(--line); }
+.start { max-width: 620px; margin: 40px auto; text-align: center; }
+.start h2 { color: var(--plum); font-size: 30px; margin: 4px 0 10px; }
+.start p { font-size: 17px; line-height: 1.5; }
+input[type=text], input[type=number], select { font: inherit; font-size: 18px; padding: 8px 10px; border: 2px solid var(--line); border-radius: 10px; }
+input[type=number] { width: 90px; }
+button { font: inherit; font-size: 17px; font-weight: 700; border: 0; border-radius: 999px; padding: 10px 22px; cursor: pointer; background: var(--pink); color: #fff; }
+button.alt { background: #fff; color: var(--plum); border: 2px solid var(--plum); }
+button.ghost { background: transparent; color: var(--plum); text-decoration: underline; padding: 6px 8px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.row { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.steps { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.steps span { font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: #fff; color: #8a7a8c; border: 2px solid var(--line); }
+.steps span.on { border-color: var(--pink); color: var(--pink); }
+.steps span.done { background: var(--teal); border-color: var(--teal); color: #fff; }
+.mission h2 { margin: 0 0 6px; color: var(--plum); font-size: 24px; }
+.mission .brief { font-size: 17px; line-height: 1.45; margin: 0 0 10px; }
+.mission .how { font-size: 14px; color: #6e5d6f; margin: 0 0 12px; }
+svg.floor { background: #fff; border-radius: 12px; cursor: crosshair; user-select: none; display: block; }
+.legend { font-size: 13px; color: #6e5d6f; margin-top: 6px; }
+.ans { display: grid; grid-template-columns: auto auto auto auto; gap: 10px 10px; align-items: center; margin: 12px 0; font-size: 17px; }
+.mark { font-weight: 800; font-size: 18px; min-width: 22px; }
+.mark.ok { color: var(--ok); } .mark.no { color: var(--no); }
+.msg { font-size: 16px; padding: 10px 14px; border-radius: 12px; margin: 10px 0; display: none; }
+.msg.show { display: block; } .msg.good { background: #E3F4EC; color: var(--ok); } .msg.try { background: #FBE3E7; color: var(--no); }
+.side { flex: 1; min-width: 330px; }
+.quiz .q { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 17px; }
+.quiz .q span.t { flex: 1; }
+.pick button { background: #fff; color: var(--plum); border: 2px solid var(--plum); padding: 6px 16px; font-size: 15px; }
+.pick button.sel { background: var(--plum); color: #fff; }
+.code { font-family: Consolas, monospace; font-size: 15px; word-break: break-all; background: var(--mist); border: 2px dashed var(--pink); border-radius: 12px; padding: 12px; margin: 10px 0; }
+table.meas { border-collapse: collapse; margin: 8px 0; font-size: 15px; } table.meas td, table.meas th { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+.tools { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.small { font-size: 13px; color: #6e5d6f; }
+@media print { header, .noprint, .steps { display: none !important; } body { background: #fff; } .card { box-shadow: none; } }
+</style>
+</head>
+<body>
+<header><h1>Dream Classroom Designer</h1><span class="who" id="who"></span></header>
+<div class="wrap" id="app"></div>
+
+<script>
+// ---------------- setup ----------------
+const COLS = 16, ROWS = 12, CS = 34, PAD = 26;
+const COLORS = { rug: "#F4B6CF", garden: "#BFE3C6", rugA: "#F4B6CF", rugB: "#D9C4F0", nook: "#BFDDF0" };
+const MISSIONS = [
+  { id: "rug", title: "Mission 1: The reading rug", need: 1, color: "rug", label: "Rug",
+    brief: "Our class needs a new reading rug. Build a <b>rectangle</b> rug that covers exactly <b>24 square feet</b>. Then find its area and perimeter.",
+    fields: ["b", "aN", "aU", "pN", "pU"] },
+  { id: "garden", title: "Mission 2: The class garden", need: 1, color: "garden", label: "Garden",
+    brief: "We have <b>18 feet</b> of fence for a class garden. Build a <b>rectangle</b> garden that the fence goes all the way around with none left over. Then find its area and perimeter.",
+    fields: ["b", "aN", "aU", "pN", "pU"] },
+  { id: "twins", title: "Mission 3: Twin rugs", need: 2, color: ["rugA", "rugB"], label: ["Rug A", "Rug B"],
+    brief: "Build <b>two different rectangle rugs</b>. Each one must cover <b>12 square feet</b>, but they must have <b>different perimeters</b>. Ribbon goes around each rug. Which rug needs more ribbon?",
+    fields: ["b", "pA", "pB", "pU", "more"] },
+  { id: "nook", title: "Mission 4: The L-shaped reading nook", need: 2, color: "nook", label: "Nook",
+    brief: "Build an <b>L-shaped</b> reading nook out of <b>two rectangles</b> that touch side by side. Then find the area and perimeter of the <b>whole</b> nook.",
+    fields: ["b", "aN", "aU", "pN", "pU"] },
+  { id: "quiz", title: "Mission 5: Area or perimeter?", quiz: true,
+    brief: "The builders need to know: is each job about <b>covering</b> (area) or going <b>around</b> (perimeter)?",
+    items: [["Carpet to cover the reading nook", "A"], ["A fence around the class garden", "P"], ["Ribbon around a rug", "P"],
+            ["Paint to cover the mural wall", "A"], ["Tiles to cover the stage floor", "A"]],
+    fields: ["q1", "q2", "q3", "q4", "q5"] }
+];
+
+let S = null;              // saved state
+let draft = null;          // working answers for current mission
+let anchor = null, hover = null;
+
+function blank(name) {
+  return { v: 1, n: name, i: 0, m: MISSIONS.map(() => ({ r: [], f: null, t: 0, s: "" })) };
+}
+function save() { try { localStorage.setItem("dcd-state", JSON.stringify(S)); } catch (e) {} }
+function load() { try { return JSON.parse(localStorage.getItem("dcd-state") || "null"); } catch (e) { return null; } }
+
+// ---------------- code (resume + teacher) ----------------
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36).slice(-4).toUpperCase(); }
+function makeCode() {
+  const p = { n: S.n, i: S.i, m: S.m.map(x => [x.r.map(r => r.join(".")).join("_"), x.f || "", x.t, x.s, x.q || ""]) };
+  const b = btoa(unescape(encodeURIComponent(JSON.stringify(p)))).replace(/\+/g, "-").replace(/\//g, "~").replace(/=+$/, "");
+  return "DC-" + hash(b + "dream") + "-" + b;
+}
+function readCode(code) {
+  const m = code.trim().match(/^DC-([A-Z0-9]{1,4})-(.+)$/);
+  if (!m || hash(m[2] + "dream") !== m[1]) return null;
+  try {
+    let b = m[2].replace(/-/g, "+").replace(/~/g, "/"); while (b.length % 4) b += "=";
+    const p = JSON.parse(decodeURIComponent(escape(atob(b))));
+    const st = blank(p.n); st.i = p.i;
+    p.m.forEach((x, k) => { st.m[k] = { r: x[0] ? x[0].split("_").map(r => r.split(".").map(Number)) : [], f: x[1] || null, t: x[2], s: x[3], q: x[4] || "" }; });
+    return st;
+  } catch (e) { return null; }
+}
+
+// ---------------- geometry ----------------
+function cellsOf(rects) { const c = new Set(); rects.forEach(([x, y, w, h]) => { for (let i = x; i < x + w; i++) for (let j = y; j < y + h; j++) c.add(i + "," + j); }); return c; }
+function perimOf(cells) { let p = 0; cells.forEach(k => { const [x, y] = k.split(",").map(Number); [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx, dy]) => { if (!cells.has((x+dx) + "," + (y+dy))) p++; }); }); return p; }
+function overlap(a, b) { return a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3]; }
+function touchSide(a, b) {
+  // share an edge of at least 1 unit, no overlap
+  if (overlap(a, b)) return false;
+  const vert = (a[0] + a[2] === b[0] || b[0] + b[2] === a[0]) && Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]) >= 1;
+  const hor = (a[1] + a[3] === b[1] || b[1] + b[3] === a[1]) && Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0]) >= 1;
+  return vert || hor;
+}
+function isRectUnion(rects) { const c = cellsOf(rects); let x0 = 99, y0 = 99, x1 = -1, y1 = -1; c.forEach(k => { const [x, y] = k.split(",").map(Number); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); return (x1 - x0 + 1) * (y1 - y0 + 1) === c.size; }
+function otherRects() { const out = []; S.m.forEach((x, k) => { if (k !== S.i) x.r.forEach(r => out.push(r)); }); return out; }
+
+// ---------------- rendering ----------------
+const $ = s => document.querySelector(s);
+function h(tag, attrs, html) { const e = document.createElement(tag); Object.assign(e, attrs || {}); if (html != null) e.innerHTML = html; return e; }
+
+function render() {
+  const app = $("#app"); app.innerHTML = "";
+  $("#who").textContent = S ? "Designer: " + S.n : "";
+  if (!S) return renderStart(app);
+  if (S.i >= MISSIONS.length) return renderFinal(app);
+  const steps = h("div", { className: "steps noprint" });
+  MISSIONS.forEach((m, k) => steps.appendChild(h("span", { className: k === S.i ? "on" : (S.m[k].s ? "done" : "") }, "Mission " + (k + 1))));
+  steps.appendChild(h("span", { className: "" }, "My design"));
+  app.appendChild(steps);
+  const M = MISSIONS[S.i];
+  M.quiz ? renderQuiz(app, M) : renderBuild(app, M);
+}
+
+function renderStart(app) {
+  const c = h("div", { className: "card start" });
+  c.innerHTML = `<h2>Welcome, classroom designer!</h2>
+  <p>You are designing our dream classroom. Each square on the floor is <b>1 square foot</b>. Finish 5 missions, then turn in your design code on Canvas.</p>
+  <p><input type="text" id="nm" placeholder="Type your first name" maxlength="20"></p>
+  <p><button id="go">Start designing</button></p>
+  <p class="small">Coming back? Paste your code here:</p>
+  <p><input type="text" id="rc" placeholder="DC-..." style="width:100%"></p>
+  <p><button class="alt" id="resume">Keep going</button></p><p class="small" id="err"></p>`;
+  app.appendChild(c);
+  const old = load();
+  if (old && old.n) { const b = h("button", { className: "ghost" }, "Continue as " + old.n); b.onclick = () => { S = old; render(); }; c.appendChild(b); }
+  $("#go").onclick = () => { const n = $("#nm").value.trim(); if (!n) { $("#err").textContent = "Type your name first."; return; } S = blank(n); save(); render(); };
+  $("#resume").onclick = () => { const st = readCode($("#rc").value); if (!st) { $("#err").textContent = "That code doesn't work. Check that you copied all of it."; return; } S = st; save(); render(); };
+}
+
+function floorSVG(opts) {
+  const W = COLS * CS + PAD * 2, H = ROWS * CS + PAD * 2;
+  let s = `<svg class="floor" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  // other items (faded) and current items
+  const items = [];
+  S.m.forEach((x, k) => { const M = MISSIONS[k]; if (M.quiz) return; x.r.forEach((r, j) => items.push({ r, k, j, color: COLORS[Array.isArray(M.color) ? M.color[j] : M.color], label: Array.isArray(M.label) ? M.label[j] : M.label })); });
+  items.forEach(it => {
+    const cur = it.k === S.i && !opts.final;
+    const [x, y, w, hh] = it.r;
+    s += `<rect x="${PAD + x * CS}" y="${PAD + y * CS}" width="${w * CS}" height="${hh * CS}" fill="${it.color}" opacity="${cur || opts.final ? 1 : 0.45}"/>`;
+  });
+  for (let i = 0; i <= COLS; i++) s += `<line x1="${PAD + i * CS}" y1="${PAD}" x2="${PAD + i * CS}" y2="${PAD + ROWS * CS}" stroke="#D8C7D3" stroke-width="1"/>`;
+  for (let j = 0; j <= ROWS; j++) s += `<line x1="${PAD}" y1="${PAD + j * CS}" x2="${PAD + COLS * CS}" y2="${PAD + j * CS}" stroke="#D8C7D3" stroke-width="1"/>`;
+  items.forEach(it => {
+    const cur = it.k === S.i && !opts.final;
+    const [x, y, w, hh] = it.r;
+    const X = PAD + x * CS, Y = PAD + y * CS;
+    s += `<rect x="${X}" y="${Y}" width="${w * CS}" height="${hh * CS}" fill="none" stroke="${cur || opts.final ? "#2A1F2B" : "#9b8a9a"}" stroke-width="${cur || opts.final ? 3 : 1.5}"/>`;
+    if (cur || opts.final) {
+      s += `<text x="${X + w * CS / 2}" y="${Y + hh * CS / 2 + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="#2A1F2B">${it.label}</text>`;
+      if (opts.labels !== false) {
+        s += `<text x="${X + w * CS / 2}" y="${Y - 7}" text-anchor="middle" font-size="13" font-weight="700" fill="#6B3F8F">${w} ft</text>`;
+        s += `<text x="${X - 6}" y="${Y + hh * CS / 2 + 4}" text-anchor="end" font-size="13" font-weight="700" fill="#6B3F8F">${hh} ft</text>`;
+      }
+    }
+  });
+  if (anchor && hover && !opts.final) {
+    const x = Math.min(anchor[0], hover[0]), y = Math.min(anchor[1], hover[1]), w = Math.abs(anchor[0] - hover[0]) + 1, hh = Math.abs(anchor[1] - hover[1]) + 1;
+    s += `<rect x="${PAD + x * CS}" y="${PAD + y * CS}" width="${w * CS}" height="${hh * CS}" fill="#C2447A" opacity=".25" stroke="#C2447A" stroke-width="2" stroke-dasharray="6 4"/>`;
+  }
+  if (anchor && !opts.final) s += `<circle cx="${PAD + anchor[0] * CS + CS / 2}" cy="${PAD + anchor[1] * CS + CS / 2}" r="7" fill="#C2447A"/>`;
+  return s + "</svg>";
+}
+
+function unitSel(id, val) {
+  return `<select id="${id}"><option value="">unit</option>${["square feet", "feet"].map(u => `<option ${val === u ? "selected" : ""}>${u}</option>`).join("")}</select>`;
+}
+
+function renderBuild(app, M) {
+  const ms = S.m[S.i];
+  draft = draft && draft.k === S.i ? draft : { k: S.i, v: {} };
+  const row = h("div", { className: "row" });
+  const left = h("div", { className: "card" });
+  left.innerHTML = `<div id="fl">${floorSVG({})}</div><p class="legend">Click one corner square, then click the opposite corner. Each square is 1 square foot.</p>`;
+  const tools = h("div", { className: "tools noprint" });
+  const undo = h("button", { className: "alt" }, "Undo"); undo.onclick = () => { ms.r.pop(); anchor = null; save(); render(); };
+  const clr = h("button", { className: "alt" }, "Clear my shape"); clr.onclick = () => { ms.r = []; anchor = null; save(); render(); };
+  tools.append(undo, clr); left.appendChild(tools);
+  const side = h("div", { className: "card side mission" });
+  const v = draft.v;
+  let form = "";
+  if (M.id === "twins") {
+    form = `<div class="ans">
+      <span>Perimeter of Rug A:</span><input type="number" id="pA" value="${v.pA ?? ""}"><span></span><span class="mark" id="m-pA"></span>
+      <span>Perimeter of Rug B:</span><input type="number" id="pB" value="${v.pB ?? ""}"><span>${unitSel("pU", v.pU)}</span><span class="mark" id="m-pU"></span>
+      <span>Which needs more ribbon?</span><span class="pick" id="more"><button data-v="A" class="${v.more === "A" ? "sel" : ""}">Rug A</button> <button data-v="B" class="${v.more === "B" ? "sel" : ""}">Rug B</button></span><span></span><span class="mark" id="m-more"></span>
+    </div><span class="mark" id="m-pB" style="display:none"></span>`;
+  } else {
+    form = `<div class="ans">
+      <span>Area:</span><input type="number" id="aN" value="${v.aN ?? ""}">${unitSel("aU", v.aU)}<span class="mark" id="m-a"></span>
+      <span>Perimeter:</span><input type="number" id="pN" value="${v.pN ?? ""}">${unitSel("pU", v.pU)}<span class="mark" id="m-p"></span>
+    </div>`;
+  }
+  side.innerHTML = `<h2>${M.title}</h2><p class="brief">${M.brief}</p>
+    <p class="how"><b>Build:</b> ${M.need === 1 ? "1 rectangle" : "2 rectangles"} · <span class="mark" id="m-b"></span> <span id="bmsg"></span></p>
+    ${form}
+    <div class="msg" id="msg"></div>
+    <div class="tools noprint"><button id="check">Check my work</button><button id="next" style="display:none">Next mission →</button><button class="ghost" id="skip" style="display:none">Skip for now</button></div>
+    <p class="small">Tries: <span id="tries">${ms.t}</span></p>`;
+  row.append(left, side); app.appendChild(row);
+  wireFloor(M, ms);
+  side.querySelectorAll("input,select").forEach(e => e.oninput = () => { draft.v[e.id] = e.value; });
+  side.querySelectorAll("#more button").forEach(b => b.onclick = () => { draft.v.more = b.dataset.v; side.querySelectorAll("#more button").forEach(x => x.classList.toggle("sel", x === b)); });
+  $("#check").onclick = () => check(M, ms);
+  $("#next").onclick = () => { S.i++; draft = null; anchor = null; save(); render(); };
+  $("#skip").onclick = () => { ms.s = ms.s || "s"; S.i++; draft = null; anchor = null; save(); render(); };
+  if (ms.s === "d") { $("#next").style.display = ""; }
+  if (ms.t >= 3 && ms.s !== "d") $("#skip").style.display = "";
+}
+
+function wireFloor(M, ms) {
+  const fl = $("#fl");
+  const cellAt = ev => { const svg = fl.querySelector("svg"); const r = svg.getBoundingClientRect(); const x = Math.floor((ev.clientX - r.left - PAD) / CS), y = Math.floor((ev.clientY - r.top - PAD) / CS); return x >= 0 && y >= 0 && x < COLS && y < ROWS ? [x, y] : null; };
+  fl.onmousemove = ev => { if (!anchor) return; const c = cellAt(ev); if (c && (!hover || c[0] !== hover[0] || c[1] !== hover[1])) { hover = c; fl.innerHTML = floorSVG({}); } };
+  fl.onclick = ev => {
+    if (ms.s === "d") { say("This mission is finished. Click Next mission.", "try"); return; }
+    const c = cellAt(ev); if (!c) return;
+    if (!anchor) { if (ms.r.length >= M.need) { say(`You already built ${M.need === 1 ? "your shape" : "both rectangles"}. Click Undo or Clear to change it.`, "try"); return; } anchor = c; hover = c; fl.innerHTML = floorSVG({}); return; }
+    const x = Math.min(anchor[0], c[0]), y = Math.min(anchor[1], c[1]), w = Math.abs(anchor[0] - c[0]) + 1, hh = Math.abs(anchor[1] - c[1]) + 1;
+    anchor = null; hover = null;
+    const r = [x, y, w, hh];
+    if (w > 12 || hh > 12) { say("Keep each side 12 feet or less.", "try"); render(); return; }
+    if (otherRects().concat(ms.r).some(o => overlap(o, r))) { say("That spot is already used. Build on empty squares.", "try"); render(); return; }
+    ms.r.push(r); save(); render();
+  };
+}
+
+function say(t, kind) { const m = $("#msg"); if (!m) return; m.className = "msg show " + kind; m.innerHTML = t; }
+function mark(id, ok) { const e = $("#m-" + id); if (e) { e.textContent = ok ? "✓" : "✗"; e.className = "mark " + (ok ? "ok" : "no"); } }
+
+function check(M, ms) {
+  const v = draft.v, r = ms.r, res = {};
+  let bmsg = "";
+  if (M.id === "rug" || M.id === "garden") {
+    const ok1 = r.length === 1;
+    const a = ok1 ? r[0][2] * r[0][3] : 0, p = ok1 ? 2 * (r[0][2] + r[0][3]) : 0;
+    res.b = ok1 && (M.id === "rug" ? a === 24 : p === 18);
+    if (!ok1) bmsg = "Build 1 rectangle first.";
+    else if (!res.b) bmsg = M.id === "rug" ? "Your rug doesn't cover 24 square feet yet." : "Your garden's fence isn't 18 feet yet.";
+    res.aN = ok1 && +v.aN === a; res.aU = v.aU === "square feet"; res.pN = ok1 && +v.pN === p; res.pU = v.pU === "feet";
+  } else if (M.id === "twins") {
+    const ok2 = r.length === 2;
+    const P = r.map(x => 2 * (x[2] + x[3]));
+    res.b = ok2 && r.every(x => x[2] * x[3] === 12) && P[0] !== P[1];
+    if (!ok2) bmsg = "Build 2 rectangles first.";
+    else if (!r.every(x => x[2] * x[3] === 12)) bmsg = "Each rug must cover exactly 12 square feet.";
+    else if (P[0] === P[1]) bmsg = "Your rugs have the same perimeter. Try a different shape for one of them.";
+    res.pA = ok2 && +v.pA === P[0]; res.pB = ok2 && +v.pB === P[1]; res.pU = v.pU === "feet";
+    res.more = ok2 && P[0] !== P[1] && v.more === (P[0] > P[1] ? "A" : "B");
+  } else if (M.id === "nook") {
+    const ok2 = r.length === 2;
+    const cells = cellsOf(r);
+    res.b = ok2 && touchSide(r[0], r[1]) && !isRectUnion(r);
+    if (!ok2) bmsg = "Build 2 rectangles first.";
+    else if (!touchSide(r[0], r[1])) bmsg = "Your two rectangles need to touch along a side.";
+    else if (isRectUnion(r)) bmsg = "That makes one big rectangle. Make an L-shape instead.";
+    res.aN = ok2 && +v.aN === cells.size; res.aU = v.aU === "square feet"; res.pN = ok2 && +v.pN === perimOf(cells); res.pU = v.pU === "feet";
+  }
+  ms.t++;
+  if (!ms.f) ms.f = M.fields.map(f => res[f] ? "1" : "0").join("");
+  const all = M.fields.every(f => res[f]);
+  mark("b", res.b); $("#bmsg").textContent = bmsg;
+  if (M.id === "twins") { mark("pA", res.pA); mark("pU", res.pB && res.pU); mark("more", res.more); }
+  else { mark("a", res.aN && res.aU); mark("p", res.pN && res.pU); }
+  const hints = [];
+  if (!res.aU && "aU" in res) hints.push("Area is measured in <b>square feet</b>.");
+  if (!res.pU && "pU" in res) hints.push("Perimeter is measured in <b>feet</b>.");
+  if (("aN" in res && !res.aN) && res.b) hints.push("Area: how many squares does it <b>cover</b>?");
+  if (("pN" in res && !res.pN) && res.b) hints.push(M.id === "nook" ? "Perimeter: add <b>every</b> outside side. An L-shape has 6 sides." : "Perimeter: add <b>all four</b> sides.");
+  if (all) { ms.s = "d"; say("Great designing! Click <b>Next mission</b>.", "good"); $("#next").style.display = ""; $("#skip").style.display = "none"; }
+  else { say("Look again at the ✗ parts. " + hints.join(" "), "try"); if (ms.t >= 3) $("#skip").style.display = ""; }
+  $("#tries").textContent = ms.t; save();
+}
+
+function renderQuiz(app, M) {
+  const ms = S.m[S.i];
+  const c = h("div", { className: "card mission quiz" });
+  const sel = (ms.q || "").split("");
+  c.innerHTML = `<h2>${M.title}</h2><p class="brief">${M.brief}</p>` +
+    M.items.map((it, k) => `<div class="q"><span class="t">${k + 1}. ${it[0]}</span><span class="pick" data-k="${k}"><button data-v="A" class="${sel[k] === "A" ? "sel" : ""}">Area</button> <button data-v="P" class="${sel[k] === "P" ? "sel" : ""}">Perimeter</button></span><span class="mark" id="m-q${k}"></span></div>`).join("") +
+    `<div class="msg" id="msg"></div><div class="tools"><button id="check">Check my work</button><button id="next" style="display:none">See my design →</button></div><p class="small">Tries: <span id="tries">${ms.t}</span></p>`;
+  app.appendChild(c);
+  const picks = sel.slice();
+  c.querySelectorAll(".pick").forEach(p => p.querySelectorAll("button").forEach(b => b.onclick = () => { picks[+p.dataset.k] = b.dataset.v; p.querySelectorAll("button").forEach(x => x.classList.toggle("sel", x === b)); }));
+  $("#check").onclick = () => {
+    if (M.items.some((_, k) => !picks[k])) { say("Answer all 5 first.", "try"); return; }
+    const res = M.items.map((it, k) => picks[k] === it[1]);
+    ms.t++; ms.q = picks.join("");
+    if (!ms.f) ms.f = res.map(x => x ? "1" : "0").join("");
+    res.forEach((ok, k) => mark("q" + k, ok));
+    if (res.every(x => x)) { ms.s = "d"; say("You know your jobs! Cover means area. Around means perimeter.", "good"); $("#next").style.display = ""; }
+    else say("Look again at the ✗ ones. Is the job <b>covering</b> something or going <b>around</b> it?", "try");
+    $("#tries").textContent = ms.t; save();
+  };
+  $("#next").onclick = () => { S.i++; save(); render(); };
+  if (ms.s === "d") $("#next").style.display = "";
+}
+
+function renderFinal(app) {
+  const code = makeCode();
+  const rows = [];
+  S.m.forEach((x, k) => { const M = MISSIONS[k]; if (M.quiz) return; x.r.forEach((r, j) => rows.push([Array.isArray(M.label) ? M.label[j] : M.label + (M.need > 1 ? " part " + (j + 1) : ""), r[2] + " ft by " + r[3] + " ft"])); });
+  const done = S.m.filter(x => x.s === "d").length;
+  const c = h("div", { className: "card" });
+  c.innerHTML = `<h2 style="color:var(--plum);margin-top:0">${S.n}'s Dream Classroom</h2>
+  <div class="row"><div>${floorSVG({ final: true })}</div>
+  <div class="side"><p>Missions finished: <b>${done} of 5</b></p>
+  <table class="meas"><tr><th>Part</th><th>Size</th></tr>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
+  <p class="noprint"><b>Turn it in:</b> copy your code and paste it into the Canvas assignment.</p>
+  <div class="code" id="code">${code}</div>
+  <div class="tools noprint"><button id="copy">Copy my code</button><button class="alt" onclick="window.print()">Print my design</button><button class="ghost" id="back">Go back to a mission</button></div>
+  <p class="small noprint" id="cm"></p></div></div>`;
+  app.appendChild(c);
+  $("#copy").onclick = async () => { try { await navigator.clipboard.writeText(code); $("#cm").textContent = "Copied! Now paste it in Canvas."; } catch (e) { const r = document.createRange(); r.selectNodeContents($("#code")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("#cm").textContent = "Press Ctrl + C to copy, then paste it in Canvas."; } };
+  $("#back").onclick = () => { const k = S.m.findIndex(x => x.s !== "d"); S.i = k < 0 ? 0 : k; save(); render(); };
+}
+
+S = null; render();
+</script>
+</body>
+</html>
